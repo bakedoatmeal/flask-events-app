@@ -1,5 +1,7 @@
 """Import packages and modules."""
+
 import os
+from urllib.request import Request
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from datetime import date, datetime
 from events_app.models import Event, Guest
@@ -54,31 +56,43 @@ def create():
 @main.route('/event/<event_id>', methods=['GET'])
 def event_detail(event_id):
     event = Event.query.filter_by(id=event_id).one()
-    return render_template('event_detail.html', event=event)
+    error = request.args.get('error')
+    return render_template('event_detail.html', event=event, error=error)
 
 
 @main.route('/event/<event_id>', methods=['POST'])
 def rsvp(event_id):
     """RSVP to an event."""
-    # TODO: Get the event with the given id from the database
+    # Get the event with the given id from the database
+    event = Event.query.filter_by(id=event_id).one()
     is_returning_guest = request.form.get('returning')
     guest_name = request.form.get('guest_name')
 
     if is_returning_guest:
-        # TODO: Look up the guest by name. If the guest doesn't exist in the 
+        # Look up the guest by name. If the guest doesn't exist in the 
         # database, render the event_detail.html template, and pass in an error
         # message as `error`.
+        try: 
+            guest = Guest.query.filter_by(name=guest_name).one()
+        except:
+            return redirect(url_for('main.event_detail', event_id=event_id, error='Guest not found'))
+        # If the guest does exist, add the event to their 
+        if guest:
+            guest.events.append(event)
+        db.session.add(guest)
+        db.session.commit()
 
-        # TODO: If the guest does exist, add the event to their 
-        # events_attending, then commit to the database.
-        pass
     else:
         guest_email = request.form.get('email')
         guest_phone = request.form.get('phone')
 
-        # TODO: Create a new guest with the given name, email, and phone, and 
+
+        #  Create a new guest with the given name, email, and phone 
+        newGuest = Guest(name=guest_name, email=guest_email, phone=guest_phone)
         # add the event to their events_attending, then commit to the database.
-        pass
+        newGuest.events.append(event)
+        db.session.add(newGuest)
+        db.session.commit()
     
     flash('You have successfully RSVP\'d! See you there!')
     return redirect(url_for('main.event_detail', event_id=event_id))
